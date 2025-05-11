@@ -75,4 +75,4 @@ pubspec.yaml
 ios/Pods/
 macos/Pods/
 windows/flutter/
-build/
+build/serviceAccountKey.json
