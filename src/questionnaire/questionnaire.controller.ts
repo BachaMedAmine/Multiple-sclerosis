@@ -38,4 +38,12 @@ export class QuestionnaireController {
     const user = req.user as any;
     return this.questionnaireService.canSubmit(user._id);
   }
+  @UseGuards(JwtAuthGuard)
+  @Get('weekly-submissions')
+  async getWeeklyQuizSubmissions(@Req() req: Request) {
+    const user = req.user as any;
+    return this.questionnaireService.getWeeklyQuizSubmissions(user._id);
+  }
+  
+  
 }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { HttpService } from '@nestjs/axios';
@@ -6,12 +6,16 @@ import { firstValueFrom } from 'rxjs';
 import { Historique } from './schema/historique.entity';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import * as admin from 'firebase-admin';
+import { encodeUserIdToInt } from 'src/user-id-encoder';
+import { User } from 'src/auth/schema/user.schema';
 
 @Injectable()
 export class HistoriqueService {
 constructor(
 @InjectModel(Historique.name) private historiqueModel: Model<Historique>,
-private httpService: HttpService
+private httpService: HttpService,
+@InjectModel(User.name)
+    private userModel: Model<User>,
 ) {}
 
 // 🔹 Générer une description avec OpenAI
@@ -76,7 +80,6 @@ fcmToken?: string
 ) {
 
   const description = await this.generateDescription(userText); // ✅ un objet { fr, en }
-  const initializedFcmToken = fcmToken ?? "";
 
 const newHistorique = new this.historiqueModel({
     user: userId,
@@ -87,7 +90,6 @@ const newHistorique = new this.historiqueModel({
     isActive: true,
     startTime: new Date(),
     lastCheckTime: new Date(),
-    fcmToken: initializedFcmToken
   });
 return newHistorique.save();
 }
@@ -214,51 +216,106 @@ async updatePainStatus(historiqueId: string, stillHurting: boolean) {
 }
 
     //Notification
-   //Notification
-   async sendNotification(fcmToken: string, messageTitle: string, messageBody: string) {
-    if (!fcmToken || typeof fcmToken !== 'string' || fcmToken.length < 100) {
-      console.warn("⚠️ Invalid or missing FCM token, skipping notification:", fcmToken);
-      return;
-    }
+    async sendNotification(fcmToken: string, messageTitle: string, messageBody: string, userId: string) {
+      if (!fcmToken || typeof fcmToken !== 'string' || fcmToken.length < 100) {
+        console.warn("⚠️ Invalid or missing FCM token, skipping notification:", fcmToken);
+        return;
+      }
   
-    const message = {
-      notification: {
-        title: messageTitle,
-        body: messageBody,
-      },
-      android: {
+      const message = {
         notification: {
-          icon: 'ms_logo',
+          title: messageTitle,
+          body: messageBody,
         },
-      },
-      token: fcmToken,
-    };
+        data: {
+          screen: 'HealthTrack',
+          userId: userId
+        },
+        android: {
+          notification: {
+            icon: 'ms_logo',
+          },
+        },
+        token: fcmToken,
+      };
+      console.log("📨 Calling Firebase with token:", fcmToken);
   
-    try {
-      const response = await admin.messaging().send(message);
-      console.log("✅ Notification sent successfully:", response);
-    } catch (error) {
-      console.error("❌ Error sending notification:", error);
+      try {
+        const response = await admin.messaging().send(message);
+        console.log("✅ Notification sent successfully:", response);
+      } catch (error) {
+        console.error("❌ Error sending notification:", error);
+      }
     }
-  }
+  
+    async updateFcmToken(userId: string, fcmToken: string): Promise<{ message: string }> {
+      const user = await this.userModel.findById(userId);
+      if (!user) {
+        throw new NotFoundException("Historique not found!");
+      }
+      await this.userModel.updateOne({ _id: userId }, { $unset: { fcmToken: '' } });
+      console.log("✅ FCM token updated for historiqueId:", userId);
+      return { message: "FCM Token updated successfully!" };
+    }
+  
+    async getUserIdByHistoriqueId(historiqueId: string): Promise<{ userId: string }> {
+      const historique = await this.historiqueModel.findById(historiqueId).select('user');
+      if (!historique) {
+        throw new NotFoundException('historique not found');
+      }
+      return { userId: historique.user.toString() };
+    }  
 
-  async updateFcmToken(historiqueId: string, fcmToken: string): Promise<{ message: string }> {
-    const historique = await this.historiqueModel.findById(historiqueId);
-    if (!historique) {
-      throw new NotFoundException("Historique not found!");
+  async prepareRelapsePrediction(userId: string) {
+    const latest = await this.historiqueModel.findOne({
+    user: userId,
+    endTime: { $ne: null },
+    }).sort({ endTime: -1 });
+    const previous = await this.historiqueModel.findOne({
+    user: userId,
+    endTime: { $ne: null },
+    _id: { $ne: latest?._id }
+    }).sort({ endTime: -1 });
+    if (!latest || !previous) {
+    throw new BadRequestException("Pas assez d'historique pour prédire.");
     }
-  
-    // Validate FCM token before updating
-    if (!fcmToken || typeof fcmToken !== 'string' || fcmToken.length < 100) {
-      console.warn("⚠️ Invalid FCM token provided:", fcmToken);
-      throw new Error("Invalid FCM token. Token must be a non-empty string with sufficient length.");
+    if (!latest.startTime || !latest.endTime) {
+    throw new Error("Le dernier historique est incomplet (startTime ou endTime manquant).");
     }
-  
-    historique.fcmToken = fcmToken;
-    await historique.save();
-  
-    console.log("✅ FCM token updated for historiqueId:", historiqueId);
-    return { message: "FCM Token updated successfully!" };
-  }
+    if (!previous.endTime) {
+    throw new Error("L'historique précédent est incomplet (endTime manquant).");
+    }
+    const durationHours = (latest.endTime.getTime() - latest.startTime.getTime()) / 3600000;
+    const hourOfDay = latest.startTime.getHours();
+    const dayOfWeek = latest.startTime.getDay();
+    const daysSincePrev = (latest.startTime.getTime() - previous.endTime.getTime()) / 86400000;
+    const relapseCount = await this.historiqueModel.countDocuments({ user: userId });
+    const relapseLevel = durationHours >= 24 ? 2 : (durationHours >= 6 ? 1 : 0);
 
+    const patient_id = encodeUserIdToInt(userId);
+
+ const payload = {
+  patient_id: Number(encodeUserIdToInt(userId)),
+  duration_hours: Number(durationHours),
+  hour_of_day: Number(hourOfDay),
+  day_of_week: Number(dayOfWeek),
+  days_since_prev_relapse: Number(daysSincePrev),
+  relapse_count: Number(relapseCount),
+  relapse_level: Number(relapseLevel)
+};
+
+  console.log('📦 Payload envoyé à Flask :', payload);
+
+  try {
+    const { data } = await firstValueFrom(this.httpService.post(
+      'http://localhost:6003/predict-next-relapse',
+      payload,
+      { headers: { 'Content-Type': 'application/json' } }
+    ));
+    return data;
+  } catch (error) {
+    console.error("🔥 Erreur lors de l'appel Flask :", error?.response?.data || error.message);
+    throw new Error("Erreur interne lors de la prédiction.");
+  }
+}
 }

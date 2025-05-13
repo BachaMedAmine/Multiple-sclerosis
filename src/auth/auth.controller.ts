@@ -155,4 +155,42 @@ async googleMobileLogin(@Body() body: { token: string }, @Res() res) {
     return this.authService.updateFcmToken(body.fullName, body.fcmToken);
   }
 
+  @Put('updateFcmTokenByEmail')
+  async updateFcmTokenByEmail(@Body() body: { email: string, fcmToken: string }) {
+    return this.authService.updateFcmTokenByEmail(body.email, body.fcmToken);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('getUserId/:authId')
+  async getUserIdByAuthId(@Param('authId') authId: string) {
+    return this.authService.getUserIdByAuthId(authId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('getMyUserId')
+  async getMyUserId(@Request() req) {
+    return this.authService.getMyUserId(req.user.userId);
+  }
+
+  @Post('apple-login')
+  async appleLogin(@Body('identityToken') identityToken: string) {
+    const user = await this.authService.validateAppleToken(identityToken);
+    return this.authService.appleLogin(user);
+  }
+
+  //verify email
+  @Post('/verify-email-code')
+  async verifyEmailCode(@Body() verifyCodeDto: VerifyCodeDto) {
+    const { email, resetCode } = verifyCodeDto;
+    const validCode = await this.authService.verifyEmailCode(email, resetCode);
+    if (!validCode) throw new NotFoundException('Invalid or expired code');
+    return { message: 'Code verified successfully' };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('/verify-email')
+  verifyEmail(@Request() req) {
+    const userId = req.user.userId;
+    return this.authService.verifyEmail(userId)
+  }
 }

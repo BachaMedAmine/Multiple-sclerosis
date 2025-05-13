@@ -58,4 +58,8 @@ export class SignUpDto {
     @IsOptional()
     @IsString()
     fcmToken?: string
+
+    @IsOptional()
+    @IsBoolean()
+    verified?: boolean
 }

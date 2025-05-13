@@ -9,6 +9,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PainCheckService } from './pain-check.service';
 import { NotificationModule } from 'src/notification/notification.module';
+import { User, UserSchema } from 'src/auth/schema/user.schema';
 
 @Module({
   imports: [
@@ -20,7 +21,13 @@ import { NotificationModule } from 'src/notification/notification.module';
         signOptions: { expiresIn: '1d' },
       }),
     }),
-    MongooseModule.forFeature([{ name: Historique.name, schema: HistoriqueSchema }]),
+    MongooseModule.forFeature([{ name: Historique.name, schema: HistoriqueSchema }
+      ,
+      {
+        name: User.name,
+        schema: UserSchema
+      },
+    ]),
     HttpModule,
     NotificationModule,
   ],

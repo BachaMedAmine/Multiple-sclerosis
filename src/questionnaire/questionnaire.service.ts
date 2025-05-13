@@ -101,4 +101,33 @@ private getNow(): Date {
 private isMonday8AM(date: Date): boolean {
   return date.getDay() === 1 && date.getHours() >= 8;
 }
+async getWeeklyQuizSubmissions(userId: string) {
+  const now = new Date();
+  const weeks: { weekStart: string; completed: boolean }[] = [];
+
+  for (let i = 5; i >= 0; i--) {
+    const monday = this.getLastMonday(this.addDays(now, -(i * 7)));
+    const nextMonday = this.getNextMonday(monday);
+
+    const exists = await this.answerModel.exists({
+      user: new Types.ObjectId(userId),
+      submittedAt: {
+        $gte: monday,
+        $lt: nextMonday,
+      },
+    });
+
+    weeks.push({
+      weekStart: monday.toISOString().slice(0, 10),
+      completed: !!exists,
+    });
+  }
+
+  return weeks;
+}
+private addDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
 }

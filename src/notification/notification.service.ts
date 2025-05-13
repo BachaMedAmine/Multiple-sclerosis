@@ -30,7 +30,7 @@ export class NotificationService {
   }
 
   async displayNotification(userId: string): Promise<{ notification: Notification[] }> {
-    const findNotifications = await this.notificationModel.find({ user: userId });
+    const findNotifications = await this.notificationModel.find({ user: userId }).sort({createdAt: -1});
     return { notification: findNotifications };
   }
 

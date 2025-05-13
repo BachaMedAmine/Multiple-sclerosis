@@ -124,4 +124,16 @@ async updateDouleurStatus(
   async updateFcmToken(@Body() body: { historiqueId: string, fcmToken: string }) {
     return this.historiqueService.updateFcmToken(body.historiqueId, body.fcmToken);
   }
+
+  
+  @Post('/predict-next-relapse')
+  @UseGuards(JwtAuthGuard)
+  async predictNextRelapse(@Request() req) {
+  const userId = req.user?.userId;
+  if (!userId) return { message: "Utilisateur non authentifié !" };
+  
+  return this.historiqueService.prepareRelapsePrediction(userId);
+  }
+  
+
 }

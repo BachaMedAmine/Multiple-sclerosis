@@ -5,17 +5,19 @@ import { Model } from 'mongoose';
 import { Historique } from './schema/historique.entity';
 import { HistoriqueService } from './historique.service'; // ✅ import
 import { NotificationService } from 'src/notification/notification.service';
+import { User } from 'src/auth/schema/user.schema';
 
 @Injectable()
 export class PainCheckService {
   constructor(
     @InjectModel(Historique.name) private readonly historiqueModel: Model<Historique>,
     private readonly historiqueService: HistoriqueService,
-    private readonly notificationService: NotificationService
+    private readonly notificationService: NotificationService,
+    @InjectModel(User.name) private readonly userModel: Model<User>, // ✅ Fix here
   ) { }
 
-  
-  @Cron('*/5 * * * *') // toutes les 5 minutes sans secondes 
+
+  @Cron('0 * * * * *') // toutes les 5 minutes sans secondes
   async followUpPain() {
     const now = new Date();
     const cinqHeuresAvant = new Date(now.getTime() - (5 * 60 * 1000));
@@ -25,12 +27,14 @@ export class PainCheckService {
       lastCheckTime: { $lte: cinqHeuresAvant },
     });
 
+
     for (const douleur of douleurs) {
-      console.log(`⏳ Douleur ${douleur._id} de l'utilisateur ${douleur.user} nécessite un check.`);
+      const user = await this.userModel.findById(douleur.user);
       douleur.needsPainCheck = true;
-      if (douleur.fcmToken) {
-        await this.historiqueService.sendNotification(douleur.fcmToken, "⌛ Health Check", " You passed 5 hours already, tell us how are you feeling now !");
-        await this.notificationService.addNotification({ title: "⌛ Health Check", message: "You passed 5 hours already, tell us how are you feeling now !" }, douleur.user.toString() );
+      if (user && user.fcmToken) {
+        console.log("🟢 Preparing to send notification for douleur:", douleur._id);
+        await this.historiqueService.sendNotification(user.fcmToken, "⌛ Health Check", " You passed 5 hours already, tell us how are you feeling now !", douleur.user.toString());
+        await this.notificationService.addNotification({ title: "⌛ Health Check", message: "You passed 5 hours already, tell us how are you feeling now !" }, douleur.user.toString());
       }
       await douleur.save();
     }
@@ -55,17 +59,14 @@ export class PainCheckService {
     console.log(`🔎 Longues douleurs trouvées : ${longuesDouleurs.length}`);
 
     for (const douleur of longuesDouleurs) {
-      console.log(`🚨 Douleur persistante: ${douleur._id} | startTime: ${douleur.startTime?.toISOString()} | createdAt: ${douleur.createdAt?.toISOString()}`);
-      console.log(`📌 Douleur détectée: ${douleur._id}`);
-      console.log(`   - startTime type: ${typeof douleur.startTime}`);
-      console.log(`   - value:`, douleur.startTime);
+      const user = await this.userModel.findById(douleur.user);
       douleur.isActive = false;
-      douleur.endTime = now; 
+      douleur.endTime = now;
       douleur.wasOver24h = true;
 
-      if (douleur.fcmToken) {
-        await this.historiqueService.sendNotification(douleur.fcmToken, "🚨 Health Alert", " You have passed the 24 hours and you must see your doctor !");
-        await this.notificationService.addNotification({ title: "🚨 Health Alert", message: "You have passed the 24 hours and you must see your doctor !" }, douleur.user.toString() );
+      if (user && user.fcmToken) {
+        await this.historiqueService.sendNotification(user.fcmToken, "🚨 Health Alert", " You have passed the 24 hours and you must see your doctor !", douleur.user.toString());
+        await this.notificationService.addNotification({ title: "🚨 Health Alert", message: "You have passed the 24 hours and you must see your doctor !" }, douleur.user.toString());
       }
 
       await douleur.save();
@@ -84,10 +85,10 @@ export class PainCheckService {
     });
 
     for (const douleur of longuesDouleurs) {
-
-      if (douleur.fcmToken) {
-        await this.historiqueService.sendNotification(douleur.fcmToken, "🚨 Emergency", "You are taking danger by ignoring the pain, Please check your doctor now !");
-        await this.notificationService.addNotification({ title: "🚨 Emergency", message: "You are taking danger by ignoring the pain, Please check your doctor now !" }, douleur.user.toString() );
+      const user = await this.userModel.findById(douleur.user._id);
+      if (user && user.fcmToken) {
+        await this.historiqueService.sendNotification(user.fcmToken, "🚨 Emergency", "You are taking danger by ignoring the pain, Please check your doctor now !", douleur.user.toString());
+        await this.notificationService.addNotification({ title: "🚨 Emergency", message: "You are taking danger by ignoring the pain, Please check your doctor now !" }, douleur.user.toString());
       }
 
       await douleur.save();

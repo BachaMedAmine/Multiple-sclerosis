@@ -58,6 +58,12 @@ export class User extends Document {
   @Prop({ required: false })
   fcmToken?: string;
 
+  @Prop({required: false, unique: true, sparse: true})
+  appleId?: string;
+
+  @Prop({ required: false })
+  verified: boolean;
+
 }
 
 export type UserDocument = User & Document;

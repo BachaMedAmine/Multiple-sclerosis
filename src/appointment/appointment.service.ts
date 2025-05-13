@@ -45,7 +45,6 @@ export class AppointmentService {
       date,
       phone,
       status: initializedStatus ? "Upcoming" : "Completed",
-      fcmToken: initializedFcmToken,
       user: userId
     });
 
@@ -112,54 +111,68 @@ export class AppointmentService {
     const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     const tomorrow = new Date(today);
     tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+
     const appointments = await this.appointmentModel.find({
       date: { $gte: today, $lt: tomorrow },
-      status: "Upcoming",
+      status: 'Upcoming',
     });
+
     for (const appointment of appointments) {
-      if (appointment.fcmToken) {
-        await this.sendNotification(appointment.fcmToken, appointment.fullName, appointment.date);
-        await this.notificationService.addNotification({ title: "📆 Appointment Reminder", message: `You have an appointment with ${appointment.fullName} !`  }, appointment.user.toString());
+      const user = await this.userModel.findById(appointment.user);
+      if (user && user.fcmToken) {
+        await this.sendNotification(user.fcmToken, appointment.fullName, appointment.date, appointment.user.toString());
+        await this.notificationService.addNotification(
+          {
+            title: '📆 Appointment Reminder',
+            message: `You have an appointment with ${appointment.fullName} !`,
+          },
+          appointment.user.toString(),
+        );
       }
     }
   }
 
-  async sendNotification(fcmToken: string, fullName: string, date: Date) {
+  async sendNotification(fcmToken: string, fullName: string, date: Date, userId: string) {
     const message = {
       notification: {
-        title: "📆 Appointment Reminder",
+        title: '📆 Appointment Reminder',
         body: `You have an appointment with ${fullName} !`,
       },
       data: {
-        screen: 'displayAppointment'
+        screen: 'displayAppointment',
+        userId: userId, // Include userId for client-side filtering
       },
       android: {
         notification: {
           icon: 'ms_logo',
-        }
+        },
       },
-      token: fcmToken
+      token: fcmToken,
     };
     try {
       await admin.messaging().send(message);
-      console.log("notif send");
     } catch (error) {
-      console.error("Error sending notification:", error);
+      console.error('Error sending notification:', error);
     }
   }
 
-  async updateFcmToken(fullName: string, fcmToken: string): Promise<{ message: string }> {
-    const appointment = await this.appointmentModel.findOne({ fullName });
-    if (!appointment) {
-      throw new NotFoundException("Appointment not found!");
+  async updateFcmToken(userId: string, fcmToken: string): Promise<{ message: string }> {
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found!');
     }
-    await this.appointmentModel.updateOne({ fullName }, { $set: { fcmToken } });
-    return { message: "FCM Token updated successfully!" };
+    await this.userModel.updateOne({ _id: userId }, { $set: { fcmToken } });
+    return { message: 'FCM Token updated successfully!' };
   }
 
-  
-
-  
+  async clearFcmToken(userId: string): Promise<{ message: string }> {
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found!');
+    }
+    await this.userModel.updateOne({ _id: userId }, { $unset: { fcmToken: '' } });
+    return { message: 'FCM Token cleared successfully!' };
+  }
 
   async countAppointments(): Promise<{ message: string }> {
     const findAppointment = await this.appointmentModel.find();

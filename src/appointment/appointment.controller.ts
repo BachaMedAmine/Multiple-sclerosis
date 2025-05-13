@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Request, UseGuards, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Request, UseGuards, Put, UnauthorizedException } from '@nestjs/common';
 import { AppointmentService } from './appointment.service';
 import { AddAppointmentDto } from './dto/addAppointment.dto';
 import { EditAppointmentDto } from './dto/editAppointment.dto';
@@ -39,9 +39,14 @@ export class AppointmentController {
     return this.appointmentService.displayAppointment(userId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Put('updateFcmToken')
-  async updateFcmToken(@Body() body: { fullName: string, fcmToken: string }) {
-    return this.appointmentService.updateFcmToken(body.fullName, body.fcmToken);
+  async updateFcmToken(@Request() req, @Body() body: { fcmToken: string }) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+    return this.appointmentService.updateFcmToken(userId, body.fcmToken);
   }
 
   @Get('countAppointments')

@@ -15,6 +15,10 @@ export class TakeMedicationDto {
   @IsOptional()
   notes?: string;
 
+  @IsOptional()
+  @IsString()
+  scheduledTime?: string;
+
   @IsString()
   @IsOptional()
   imageUrl?: string;
