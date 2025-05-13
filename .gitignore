@@ -76,3 +76,4 @@ ios/Pods/
 macos/Pods/
 windows/flutter/
 build/serviceAccountKey.json
+serviceAccountKey.json
