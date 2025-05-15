@@ -500,19 +500,21 @@ async refreshToken(refreshToken: string): Promise<{ accessToken: string; refresh
       const teamId = 'G96V29LG5G';
       const keyId = 'NB325ZFBJH';
   
-      
-      const privateKeyPath = path.join(__dirname, 'AuthKey_NB325ZFBJH.p8');
-      const keyPath = this.configService.get<string>('APPLE_KEY_PATH');
-if (!keyPath) {
-  throw new Error('❌ APPLE_KEY_PATH is not defined in .env');
-}
-const privateKey = fs.readFileSync(keyPath, 'utf8');
-      console.log("📁 Looking for Apple key at:", privateKeyPath);
-      if (!clientId || !teamId || !keyId || !privateKey) {
-        throw new Error(`Missing Apple configuration values.`);
+      const rawPath = this.configService.get<string>('APPLE_KEY_PATH');
+      const keyPath = path.resolve(process.cwd(), rawPath || '');
+      console.log("📁 Absolute Apple Key Path:", keyPath);
+  
+      if (!rawPath || !fs.existsSync(keyPath)) {
+        throw new Error(`❌ Apple .p8 file not found at: ${keyPath}`);
       }
   
-      // Optional test to verify JWT signing works (debug only)
+      const privateKey = fs.readFileSync(keyPath, 'utf8');
+  
+      if (!clientId || !teamId || !keyId || !privateKey) {
+        throw new Error(`Missing Apple configuration values: clientId=${clientId}, teamId=${teamId}, keyId=${keyId}, privateKeyDefined=${!!privateKey}`);
+      }
+  
+      // Optional test JWT signing
       try {
         const testJwt = jwt.sign(
           { sub: 'test-user' },
