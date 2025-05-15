@@ -11,7 +11,7 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 try:
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__) )
     model_path = os.path.join(BASE_DIR, "relapse_regressor.pkl")
     regressor = joblib.load(model_path)
     logging.info(f"Regressor model loaded from {model_path}")

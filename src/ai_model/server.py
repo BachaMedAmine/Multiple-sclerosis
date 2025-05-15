@@ -13,6 +13,7 @@ logging.basicConfig(level=logging.DEBUG)
 try:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(BASE_DIR, "relapse_predictor.pkl")
+    
     model = joblib.load(model_path)
     logging.info(f"Model loaded from {model_path}")
 except FileNotFoundError:
