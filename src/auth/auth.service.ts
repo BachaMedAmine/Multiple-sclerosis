@@ -502,11 +502,21 @@ async refreshToken(refreshToken: string): Promise<{ accessToken: string; refresh
   
       
       const privateKeyPath = path.join(__dirname, 'AuthKey_NB325ZFBJH.p8');
-      const keyPath = this.configService.get<string>('APPLE_KEY_PATH');
-if (!keyPath) {
-  throw new Error('❌ APPLE_KEY_PATH is not defined in .env');
-}
-const privateKey = fs.readFileSync(keyPath, 'utf8');
+      console.log("🔍 Looking for Apple key at:", privateKeyPath);
+      
+      if (!fs.existsSync(privateKeyPath)) {
+        throw new Error(`❌ Apple key file not found at: ${privateKeyPath}`);
+      }
+      
+      const privateKey = fs.readFileSync(privateKeyPath, 'utf8');
+      
+      if (!privateKey || privateKey.trim().length < 20) {
+        throw new Error("❌ Apple private key is empty or unreadable");
+      }
+      console.log("✅ Apple private key loaded successfully");
+      
+      
+
       console.log("📁 Looking for Apple key at:", privateKeyPath);
       if (!clientId || !teamId || !keyId || !privateKey) {
         throw new Error(`Missing Apple configuration values.`);
