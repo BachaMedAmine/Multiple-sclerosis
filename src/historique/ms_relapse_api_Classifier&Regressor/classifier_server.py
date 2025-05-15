@@ -5,14 +5,14 @@ import pandas as pd
 import logging
 from dotenv import load_dotenv
 
+
 load_dotenv()
-
 app = Flask(__name__)
-
 logging.basicConfig(level=logging.DEBUG)
 
 try:
-    model_path = "/Users/meriemabid/Downloads/PIM_Backend-main/src/historique/ms_relapse_api_Classifier&Regressor/relapse_classifier.pkl"
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(BASE_DIR, "relapse_classifier.pkl")
     model = joblib.load(model_path)
     logging.info(f"Classifier model loaded from {model_path}")
 except FileNotFoundError:

@@ -6,15 +6,13 @@ import pandas as pd
 import logging
 from dotenv import load_dotenv
 
-load_dotenv()  # Load .env file
-
+load_dotenv()
 app = Flask(__name__)
-
-# Setup logging
 logging.basicConfig(level=logging.DEBUG)
 
 try:
-    model_path = "/Users/meriemabid/Downloads/PIM_Backend-main/src/ai_model/relapse_predictor.pkl"
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(BASE_DIR, "relapse_predictor.pkl")
     model = joblib.load(model_path)
     logging.info(f"Model loaded from {model_path}")
 except FileNotFoundError:

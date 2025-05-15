@@ -8,7 +8,7 @@ import { News, NewsSchema } from './schema/news.schema';
 @Module({
   imports: [MongooseModule.forFeature([{ name: News.name, schema: NewsSchema }])],
   controllers: [NewsController],
-  providers: [NewsService, AIService],  // ✅ Add AIService
-  exports: [NewsService, AIService],    // ✅ Export AIService
+  providers: [NewsService, AIService],
+  exports: [NewsService, AIService],
 })
 export class NewsModule {}

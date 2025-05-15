@@ -1,0 +1,7 @@
+dist
+node_modules
+**/venv/**
+**/lib/**
+**/__pycache__/**
+**/*.py
+**/*.js

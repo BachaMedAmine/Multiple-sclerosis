@@ -18,6 +18,9 @@ import { Cron } from '@nestjs/schedule';
 import * as admin from 'firebase-admin';
 import { NotificationService } from 'src/notification/notification.service';
 import * as appleSigninAuth from 'apple-signin-auth';
+import * as jwt from 'jsonwebtoken';
+import * as fs from 'fs';
+import * as path from 'path';
 
 
 @Injectable()
@@ -491,61 +494,77 @@ async refreshToken(refreshToken: string): Promise<{ accessToken: string; refresh
     return { user: user.id.toString() };
   }
 
-async validateAppleToken(identityToken: string): Promise<any> {
-  try {
-  const clientId = this.configService.get<string>('APPLE_CLIENT_ID') || process.env.APPLE_CLIENT_ID;
-  const teamId = this.configService.get<string>('APPLE_TEAM_ID') || process.env.APPLE_TEAM_ID;
-  const keyId = this.configService.get<string>('APPLE_KEY_ID') || process.env.APPLE_KEY_ID;
-  const APPLE_PRIVATE_KEY = this.configService.get<string>('APPLE_PRIVATE_KEY') || process.env.APPLE_PRIVATE_KEY;
-  if (!clientId || !teamId || !keyId || !APPLE_PRIVATE_KEY) {
-  throw new Error(
-  `Missing Apple configuration values: clientId=${clientId}, teamId=${teamId}, keyId=${keyId}, privateKeyDefined=${!!APPLE_PRIVATE_KEY}`
-  );
-  }
-  const privateKey = APPLE_PRIVATE_KEY.replace(/\\n/g, '\n');
-  const clientSecret = appleSigninAuth.getClientSecret({
-  clientID: clientId,
-  teamID: teamId,
-  keyIdentifier: keyId,
-  privateKey,
-  });
-  console.log('clientSecret generated:', clientSecret.slice(0, 30), '...');
-  const applePayload = await appleSigninAuth.verifyIdToken(identityToken, {
-  audience: clientId,
-  ignoreExpiration: false,
-  clientSecret,
-  });
-  console.log('Apple token verified:', applePayload);
-  const { email, sub } = applePayload;
-  let user = await this.userModel.findOne({ email });
-  if (!user) {
-  user = await this.userModel.findOne({ appleId: sub });
-  }
-  if (!user) {
-  // Derive fullName from email
-  const derivedFullName = email.includes('@') ? email.split('@')[0] : 'UnknownUser';
-  const formattedFullName = derivedFullName.charAt(0).toUpperCase() + derivedFullName.slice(1);
-  if (!formattedFullName) {
-  throw new Error('Derived fullName cannot be empty');
-  }
-  user = await this.userModel.create({
-  email,
-  appleId: sub,
-  fullName: formattedFullName, // Satisfies the required field
-  password: await bcrypt.hash(randomBytes(16).toString('hex'), 10),
-  profileCompleted: false,
-  // Defaults for other fields are handled by the schema
-  });
-  console.log('New user created:', user);
-  }
-  return user;
-  } catch (err) {
-  console.error('Apple token verification failed:', err.message);
-  if (err.message.includes('jwt expired')) {
-  throw new UnauthorizedException('Apple token has expired');
-  }
-  throw new UnauthorizedException(`Apple login failed: ${err.message}`);
-  }
+  async validateAppleToken(identityToken: string): Promise<any> {
+    try {
+      const clientId = 'com.meriemabid.pim';
+      const teamId = 'G96V29LG5G';
+      const keyId = 'NB325ZFBJH';
+  
+      
+      const privateKeyPath = path.join(__dirname, 'AuthKey_NB325ZFBJH.p8');
+      const keyPath = this.configService.get<string>('APPLE_KEY_PATH');
+if (!keyPath) {
+  throw new Error('❌ APPLE_KEY_PATH is not defined in .env');
+}
+const privateKey = fs.readFileSync(keyPath, 'utf8');
+      console.log("📁 Looking for Apple key at:", privateKeyPath);
+      if (!clientId || !teamId || !keyId || !privateKey) {
+        throw new Error(`Missing Apple configuration values.`);
+      }
+  
+      // Optional test to verify JWT signing works (debug only)
+      try {
+        const testJwt = jwt.sign(
+          { sub: 'test-user' },
+          privateKey,
+          {
+            algorithm: 'ES256',
+            expiresIn: '1h',
+            keyid: keyId,
+            issuer: teamId,
+            audience: clientId,
+          }
+        );
+        console.log("✅ JWT test succeeded:", testJwt.slice(0, 30), '...');
+      } catch (err) {
+        console.error("❌ JWT sign error:", err.message);
+      }
+  
+      const clientSecret = appleSigninAuth.getClientSecret({
+        clientID: clientId,
+        teamID: teamId,
+        keyIdentifier: keyId,
+        privateKey,
+      });
+  
+      const applePayload = await appleSigninAuth.verifyIdToken(identityToken, {
+        audience: clientId,
+        ignoreExpiration: false,
+        clientSecret,
+      });
+  
+      const { email, sub } = applePayload;
+      let user = await this.userModel.findOne({ email }) || await this.userModel.findOne({ appleId: sub });
+  
+      if (!user) {
+        const derivedName = email?.split('@')[0] || 'User';
+        const fullName = derivedName.charAt(0).toUpperCase() + derivedName.slice(1);
+        const hashedPassword = await bcrypt.hash(randomBytes(16).toString('hex'), 10);
+  
+        user = await this.userModel.create({
+          email,
+          appleId: sub,
+          fullName,
+          password: hashedPassword,
+          profileCompleted: false,
+        });
+      }
+  
+      return user;
+    } catch (err) {
+      console.error('Apple token verification failed:', err.message);
+      throw new UnauthorizedException(`Apple login failed: ${err.message}`);
+    }
   }
   
   async appleLogin(user: any): Promise<{ payload, token: string }> {
