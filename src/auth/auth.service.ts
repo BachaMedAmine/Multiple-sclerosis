@@ -515,7 +515,11 @@ async refreshToken(refreshToken: string): Promise<{ accessToken: string; refresh
       }
       console.log("✅ Apple private key loaded successfully");
       
-      
+      console.log("🔐 Apple config values:");
+console.log(" - clientId:", clientId);
+console.log(" - teamId:", teamId);
+console.log(" - keyId:", keyId);
+console.log(" - privateKey loaded:", privateKey && privateKey.length > 50);
 
       console.log("📁 Looking for Apple key at:", privateKeyPath);
       if (!clientId || !teamId || !keyId || !privateKey) {
