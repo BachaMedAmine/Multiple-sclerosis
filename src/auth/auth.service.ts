@@ -496,37 +496,53 @@ async refreshToken(refreshToken: string): Promise<{ accessToken: string; refresh
 
   async validateAppleToken(identityToken: string): Promise<any> {
     try {
-      const clientId = 'com.meriemabid.pim';
-      const teamId = 'G96V29LG5G';
-      const keyId = 'NB325ZFBJH';
+      // Load configuration values with fallbacks
+      const clientId = this.configService.get<string>('APPLE_CLIENT_ID') || 'com.meriemabid.pim';
+      const teamId = this.configService.get<string>('APPLE_TEAM_ID') || 'G96V29LG5G';
+      const keyId = this.configService.get<string>('APPLE_KEY_ID') || 'NB325ZFBJH';
+      let privateKey = this.configService.get<string>('APPLE_PRIVATE_KEY');
   
-      
-      const privateKeyPath = path.join(__dirname, 'AuthKey_NB325ZFBJH.p8');
-      console.log("🔍 Looking for Apple key at:", privateKeyPath);
-      
-      if (!fs.existsSync(privateKeyPath)) {
-        throw new Error(`❌ Apple key file not found at: ${privateKeyPath}`);
+      // Log configuration values (avoid logging the full private key for security)
+      console.log('📁 Apple configuration:', {
+        clientId,
+        teamId,
+        keyId,
+        privateKeyDefined: !!privateKey,
+        privateKeyLength: privateKey ? privateKey.length : 0,
+        envLoaded: !!process.env.APPLE_PRIVATE_KEY,
+      });
+  
+      // Check if private key is loaded from environment
+      if (!privateKey) {
+        console.error('❌ APPLE_PRIVATE_KEY not found in environment variables');
+        // Fallback: Try reading from file
+        const keyPath = this.configService.get<string>('APPLE_KEY_PATH') || 'src/auth/AuthKey_NB325ZFBJH.p8';
+        try {
+          privateKey = fs.readFileSync(path.resolve(keyPath), 'utf8');
+          console.log('✅ Fallback: Loaded private key from file:', keyPath);
+        } catch (fileErr) {
+          console.error('❌ Failed to read private key from file:', fileErr.message);
+        }
       }
-      
-      const privateKey = fs.readFileSync(privateKeyPath, 'utf8');
-      
-      if (!privateKey || privateKey.trim().length < 20) {
-        throw new Error("❌ Apple private key is empty or unreadable");
-      }
-      console.log("✅ Apple private key loaded successfully");
-      
-      console.log("🔐 Apple config values:");
-console.log(" - clientId:", clientId);
-console.log(" - teamId:", teamId);
-console.log(" - keyId:", keyId);
-console.log(" - privateKey loaded:", privateKey && privateKey.length > 50);
-
-      console.log("📁 Looking for Apple key at:", privateKeyPath);
+  
+      // Validate configuration
       if (!clientId || !teamId || !keyId || !privateKey) {
-        throw new Error(`Missing Apple configuration values.`);
+        throw new Error(
+          `Missing Apple configuration values: clientId=${clientId}, teamId=${teamId}, keyId=${keyId}, privateKeyDefined=${!!privateKey}`,
+        );
       }
   
-      // Optional test to verify JWT signing works (debug only)
+      // Normalize private key format (remove extra whitespace, ensure proper PEM structure)
+      privateKey = privateKey
+        .replace(/\\n/g, '\n')
+        .replace(/\r/g, '')
+        .trim();
+      if (!privateKey.startsWith('-----BEGIN PRIVATE KEY-----') || !privateKey.endsWith('-----END PRIVATE KEY-----')) {
+        console.error('❌ Invalid private key format');
+        throw new Error('Invalid private key format');
+      }
+  
+      // Test JWT signing to verify private key
       try {
         const testJwt = jwt.sign(
           { sub: 'test-user' },
@@ -537,13 +553,15 @@ console.log(" - privateKey loaded:", privateKey && privateKey.length > 50);
             keyid: keyId,
             issuer: teamId,
             audience: clientId,
-          }
+          },
         );
-        console.log("✅ JWT test succeeded:", testJwt.slice(0, 30), '...');
-      } catch (err) {
-        console.error("❌ JWT sign error:", err.message);
+        console.log('✅ JWT test succeeded:', testJwt.slice(0, 30), '...');
+      } catch (jwtErr) {
+        console.error('❌ JWT sign error:', jwtErr.message);
+        throw new Error(`JWT signing failed: ${jwtErr.message}`);
       }
   
+      // Generate client secret
       const clientSecret = appleSigninAuth.getClientSecret({
         clientID: clientId,
         teamID: teamId,
@@ -551,6 +569,7 @@ console.log(" - privateKey loaded:", privateKey && privateKey.length > 50);
         privateKey,
       });
   
+      // Verify Apple identity token
       const applePayload = await appleSigninAuth.verifyIdToken(identityToken, {
         audience: clientId,
         ignoreExpiration: false,
