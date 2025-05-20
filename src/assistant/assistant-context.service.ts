@@ -2,7 +2,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Appointment } from 'src/appointment/schema/appointment.entity';
 import { User, UserDocument } from 'src/auth/schema/user.schema';
 import { Historique } from 'src/historique/schema/historique.entity';
@@ -18,20 +18,25 @@ export class AssistantContextService {
   ) {}
 
   async buildContextSummary(userId: string): Promise<string> {
-    const user = await this.userModel.findById(userId).lean();
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new Error(`ID utilisateur invalide : ${userId}`);
+    }
   
+    const objectId = new Types.ObjectId(userId);
+  
+    const user = await this.userModel.findById(objectId).lean();
     if (!user) {
       throw new Error(`Utilisateur avec l'ID ${userId} introuvable.`);
     }
   
     const appointments = await this.appointmentModel
-      .find({ user: userId, status: 'Upcoming' })
+      .find({ user: objectId, status: 'Upcoming' })
       .sort({ date: 1 })
       .limit(3)
       .lean();
   
     const douleurs = await this.historiqueModel
-      .find({ user: userId, isActive: true })
+      .find({ user: objectId, isActive: true })
       .sort({ createdAt: -1 })
       .limit(3)
       .lean();

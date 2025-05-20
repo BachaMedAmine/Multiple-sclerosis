@@ -21,7 +21,7 @@ async ask(
     const response = await this.openaiService.askAssistant(context, question);
     return { response };
   } catch (error) {
-    console.error('❌ Erreur dans /assistant/ask:', error);
+    console.error('Erreur dans /assistant/ask:', error);
     throw error;
   }
 }
