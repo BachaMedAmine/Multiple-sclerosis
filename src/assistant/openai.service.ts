@@ -73,7 +73,7 @@ If you asked to speak French or English, ask the user if they want to switch the
 Give always direct answer to anything that the user asks.
 Do not greet after the first time you talk to the user.
 If you are asked about how you're doing like (how are you, how are you doing, how's going, how are you feeling, etc) just say you're good and excited to help.
-When the user types something in english reply in english only.
+When the user Types something in english reply in english only.
 `.trim();
 
     const chatCompletion = await this.openai.chat.completions.create({
