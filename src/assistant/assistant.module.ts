@@ -3,6 +3,7 @@ import { AssistantController } from './assistant.controller';
 import { AssistantContextService } from './assistant-context.service';
 import { OpenAIService } from './openai.service';
 import { MongooseModule } from '@nestjs/mongoose';
+import { AuthModule } from 'src/auth/auth.module';
 
 import { User, UserSchema } from 'src/auth/schema/user.schema';
 import { Appointment, AppointmentSchema } from 'src/appointment/schema/appointment.entity';
@@ -11,6 +12,7 @@ import { Historique, HistoriqueSchema } from 'src/historique/schema/historique.e
 
 @Module({
   imports: [
+    AuthModule,
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: Appointment.name, schema: AppointmentSchema },

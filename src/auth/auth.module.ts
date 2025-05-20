@@ -13,6 +13,7 @@ import { PassportModule } from '@nestjs/passport';
 import { GoogleStrategy } from './Google/auth.google.strategy';
 import { GoogleOAuthGuard } from './Google/google-auth.guard';
 import { NotificationModule } from 'src/notification/notification.module';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Module({
   imports: [
@@ -39,7 +40,7 @@ import { NotificationModule } from 'src/notification/notification.module';
     PassportModule.register({ defaultStrategy: 'jwt' }),NotificationModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, MailService, GoogleStrategy, GoogleOAuthGuard],
-  exports: [AuthService, JwtModule, PassportModule], // ✅ EXPORT properly here
+  providers: [AuthService, MailService, GoogleStrategy, GoogleOAuthGuard, JwtAuthGuard],
+  exports: [AuthService, JwtModule, PassportModule, JwtAuthGuard], // ✅ EXPORT properly here
 })
 export class AuthModule {}
