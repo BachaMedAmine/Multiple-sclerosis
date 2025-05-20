@@ -592,12 +592,7 @@ async refreshToken(refreshToken: string): Promise<{ accessToken: string; refresh
           profileCompleted: false,
         });
       }
-      console.log('🔍 Environment variables:', {
-        appleClientId: process.env.APPLE_CLIENT_ID,
-        appleTeamId: process.env.APPLE_TEAM_ID,
-        appleKeyId: process.env.APPLE_KEY_ID,
-        applePrivateKeyDefined: !!process.env.APPLE_PRIVATE_KEY,
-      });
+  
       return user;
     } catch (err) {
       console.error('Apple token verification failed:', err.message);
