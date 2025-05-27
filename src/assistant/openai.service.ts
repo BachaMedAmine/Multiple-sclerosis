@@ -95,7 +95,7 @@ When users speak English, reply only in English.
       console.log('✅ Assistant Response:', result);
       return result || 'Désolé, je n’ai pas pu générer une réponse.';
     } catch (error) {
-      console.error('❌ OpenAI API Error:', error);
+      console.error('❌ Take it OpenAI API Error:', error);
       return 'Une erreur est survenue avec l’assistant. Veuillez réessayer plus tard.';
     }
   }
