@@ -65,4 +65,5 @@ export class AssistantContextService {
   
     return `${profilePart.trim()}\n\n${douleursPart}\n\n${rdvPart}`;
   }
+  
 }
