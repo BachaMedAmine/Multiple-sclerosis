@@ -393,17 +393,30 @@ async refreshToken(refreshToken: string): Promise<{ accessToken: string; refresh
   //Notification Quiz
   @Cron('0 0 * * 1')
   async sendWeeklyQuizReminder() {
-    const users = await this.userModel.find({ fcmToken: { $exists: true, $ne: "" } }).lean();
-
+    const users = await this.userModel
+      .find({
+        fcmToken: { $exists: true, $ne: '' },
+    }).lean();
+  
     for (const user of users) {
       if (user.fcmToken) {
-        await this.sendNotification(user.fcmToken);
-        await this.notificationService.addNotification({ title: "🔓 Quiz Open", message: `Weekly Quiz is open. Don't forget to pass it !` }, user._id.toString());
+        // Pass user ID to handle token cleanup
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
+        await this.sendNotification(user.fcmToken, user._id.toString());
+        
+        await this.notificationService.addNotification(
+          { 
+            title: '🔓 Quiz Open',
+            message: `Weekly Quiz is open. Don't forget to pass it !`,
+          },
+          // eslint-disable-next-line @typescript-eslint/no-base-to-string
+          user._id.toString()
+        );
       }
     }
   }
 
-  async sendNotification(fcmToken: string) {
+  async sendNotification(fcmToken: string, userId: string) {
     const message = {
       notification: {
         title: "🔓 Quiz Open",
@@ -417,12 +430,24 @@ async refreshToken(refreshToken: string): Promise<{ accessToken: string; refresh
           icon: 'ms_logo',
         }
       },
-      token: fcmToken
+      token: fcmToken,
     };
+    
     try {
       await admin.messaging().send(message);
     } catch (error) {
       console.error("Error sending notification:", error);
+  
+      // Handle invalid FCM tokens
+      if (
+        error.code === 'messaging/registration-token-not-registered' ||
+        error.code === 'messaging/invalid-registration-token'
+      ) {
+        console.log(`Removing invalid FCM token for user ${userId}`);
+        
+        // Remove invalid token from database
+        await this.userModel.updateOne({ _id: userId }, { $set: { fcmToken: '' } });
+      }
     }
   }
 
