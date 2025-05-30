@@ -127,7 +127,7 @@ async refreshToken(refreshToken: string): Promise<{ accessToken: string; refresh
   };
 }
   async validateGoogleUser(googleUser: any): Promise<any> {
-    const { email, fullName, gender, birthday, googleId, accessToken, refreshToken } = googleUser;
+    const { email, fullName, gender, birthday, googleId, accessToken } = googleUser;
   
     let user = await this.userModel.findOne({ email }) || await this.userModel.findOne({ googleId });
   
@@ -135,7 +135,7 @@ async refreshToken(refreshToken: string): Promise<{ accessToken: string; refresh
       if (!user.googleId) {
         user.googleId = googleId;
         user.accessToken = accessToken;
-        user.refreshToken = refreshToken;
+        //user.refreshToken = refreshToken;
         await user.save();
       }
       return user;
@@ -153,7 +153,7 @@ async refreshToken(refreshToken: string): Promise<{ accessToken: string; refresh
       birthday,
       googleId,
       accessToken,
-      refreshToken,
+      //refreshToken,
       profileCompleted: false,
       phone: 10000000,
       careGiverEmail: '',
@@ -203,7 +203,7 @@ async refreshToken(refreshToken: string): Promise<{ accessToken: string; refresh
     }
   }
  
-  async googleLogin(user: any): Promise<{ payload, token: string }> {
+  async googleLogin(user: any): Promise<{ payload; token: string; refreshToken: string }> {
     const payload = {
       userId: user._id.toString(),
       fullName: user.fullName,
@@ -213,12 +213,16 @@ async refreshToken(refreshToken: string): Promise<{ accessToken: string; refresh
       phone: user.phone,
       careGiverEmail: user.careGiverEmail,
       diagnosis: user.diagnosis,
-      medicalReport: user.medicalReport
+      medicalReport: user.medicalReport,
     };
-
+  
     const token = this.jwtService.sign(payload, { expiresIn: '5m' });
-
-    return { payload, token };
+    const refreshToken = randomBytes(32).toString('hex'); // Generate custom refresh token
+  
+    // Update the user document with the new refreshToken
+    await this.userModel.updateOne({ _id: user._id }, { $set: { refreshToken } });
+  
+    return { payload, token, refreshToken }; // Return both access token and refresh token
   }
 
   async forgotPassword(email: string) {
@@ -386,10 +390,8 @@ async refreshToken(refreshToken: string): Promise<{ accessToken: string; refresh
   async getAllUsersWithFcmToken(): Promise<User[]> {
     return this.userModel.find({ fcmToken: { $exists: true, $ne: null } }).lean();
   }
-  
   //Notification Quiz
-//@Cron('0 0 * * 1') Every monday at midnight 00:00
-@Cron('0 * * * * *')// Every minute
+  @Cron('0 0 * * 1')
   async sendWeeklyQuizReminder() {
     const users = await this.userModel.find({ fcmToken: { $exists: true, $ne: "" } }).lean();
 

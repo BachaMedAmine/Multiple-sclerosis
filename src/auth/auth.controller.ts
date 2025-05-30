@@ -144,10 +144,10 @@ async googleMobileLogin(@Body() body: { token: string }, @Res() res) {
   }
 
   const user = await this.authService.validateGoogleToken(token);
-  const { payload, token: jwtToken } = await this.authService.googleLogin(user);
+  const { payload, token: jwtToken, refreshToken } = await this.authService.googleLogin(user);
 
   res.setHeader('Authorization', `Bearer ${jwtToken}`);
-  res.json({ token: jwtToken });
+    res.json({ token: jwtToken, refreshToken });
 }
 
 @Put('updateFcmToken')
