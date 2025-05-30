@@ -80,3 +80,16 @@ build/serviceAccountKey.json
 serviceAccountKey.json
 
 serviceAccountKey.json
+
+
+# Secrets and private keys
+*.p8
+
+# Uploads directory
+uploads/
+
+# PM2 process file
+ecosystem.config.js
+
+# Python virtual environments
+venv/
